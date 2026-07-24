@@ -230,3 +230,12 @@ data/chroma_db/
 !data/eval_results.json
 !data/eval_results.md
 !data/eval_results.png
+
+# ...and except the actual pipeline output the deployed Streamlit app
+# needs to run (Streamlit Community Cloud runs from a fresh clone of
+# this repo - it has no TMDB/Wikipedia scraping step, so this data must
+# be committed, not regenerated at deploy time).
+!data/tmdb_shows.json
+!data/shows_with_plots.json
+!data/chroma_db/
+!data/chroma_db/**
