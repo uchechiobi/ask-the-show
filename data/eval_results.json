@@ -1,0 +1,396 @@
+{
+  "rows": [
+    {
+      "id": 1,
+      "query_type": "lookup",
+      "query": "what is The Wire about",
+      "expected_titles": [
+        "The Wire"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "The Wire"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "The Wire"
+      ]
+    },
+    {
+      "id": 2,
+      "query_type": "lookup",
+      "query": "tell me about Alien",
+      "expected_titles": [
+        "Alien"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Alien"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "Alien"
+      ]
+    },
+    {
+      "id": 3,
+      "query_type": "lookup",
+      "query": "what is Twin Peaks about",
+      "expected_titles": [
+        "Twin Peaks"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Twin Peaks"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "Twin Peaks"
+      ]
+    },
+    {
+      "id": 4,
+      "query_type": "lookup",
+      "query": "tell me about Knives Out",
+      "expected_titles": [
+        "Knives Out"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Knives Out"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "Knives Out"
+      ]
+    },
+    {
+      "id": 5,
+      "query_type": "lookup",
+      "query": "what is The Sopranos about",
+      "expected_titles": [
+        "The Sopranos"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "The Sopranos"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "The Sopranos"
+      ]
+    },
+    {
+      "id": 6,
+      "query_type": "comparison",
+      "query": "compare The Sopranos vs The Wire",
+      "expected_titles": [
+        "The Sopranos",
+        "The Wire"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "The Sopranos",
+        "The Wire"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "The Sopranos",
+        "The Wire"
+      ]
+    },
+    {
+      "id": 7,
+      "query_type": "comparison",
+      "query": "compare Alien vs Aliens",
+      "expected_titles": [
+        "Alien",
+        "Aliens"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Alien",
+        "Aliens"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "Alien",
+        "Aliens"
+      ]
+    },
+    {
+      "id": 8,
+      "query_type": "recommend",
+      "query": "a detective investigating a murder in a small town",
+      "expected_titles": [
+        "True Detective"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Vera",
+        "Reacher",
+        "True Detective",
+        "Knives Out",
+        "Rizzoli & Isles"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "The Batman",
+        "Knives Out",
+        "The Punisher: One Last Kill",
+        "True Detective",
+        "FROM"
+      ]
+    },
+    {
+      "id": 9,
+      "query_type": "recommend",
+      "query": "space exploration and first contact with aliens",
+      "expected_titles": [
+        "Interstellar"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Deep In",
+        "Elio",
+        "Star Trek: Discovery",
+        "Interstellar",
+        "Disclosure Day"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "Interstellar",
+        "Star Trek: Strange New Worlds",
+        "Elio",
+        "Prometheus",
+        "Star Trek: Discovery"
+      ]
+    },
+    {
+      "id": 10,
+      "query_type": "recommend",
+      "query": "a heist gone wrong with a crew of criminals",
+      "expected_titles": [
+        "The Usual Suspects"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Wrath of Man",
+        "The Shadow's Edge",
+        "The Bad Guys",
+        "Crime 101",
+        "The Usual Suspects"
+      ],
+      "vector_hit": false,
+      "vector_titles": [
+        "I Will Find You",
+        "Crime 101",
+        "Bad Boys: Ride or Die",
+        "The Bad Guys",
+        "Wrath of Man"
+      ]
+    },
+    {
+      "id": 11,
+      "query_type": "recommend",
+      "query": "a family drama about grief and loss",
+      "expected_titles": [
+        "Everwood"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Everwood",
+        "Forgive Us All",
+        "Boy Undone",
+        "The O.C.",
+        "Love, Ngo"
+      ],
+      "vector_hit": false,
+      "vector_titles": [
+        "Love, Ngo",
+        "The Summer I Turned Pretty",
+        "Voicemails for Isabelle",
+        "One Battle After Another",
+        "Apex"
+      ]
+    },
+    {
+      "id": 12,
+      "query_type": "recommend",
+      "query": "teenage superhero learning to control their powers",
+      "expected_titles": [
+        "Spider-Man: Into the Spider-Verse"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "The Incredibles",
+        "The Boys",
+        "Incredibles 2",
+        "Spider-Man: Into the Spider-Verse",
+        "Spider-Man: Far From Home"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "Spider-Man: Homecoming",
+        "Spider-Man: Brand New Day",
+        "Spider-Man: Into the Spider-Verse",
+        "The Boys",
+        "Superman"
+      ]
+    },
+    {
+      "id": 13,
+      "query_type": "recommend",
+      "query": "a story about an alien creature hunting a spaceship crew",
+      "expected_titles": [
+        "Alien"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Aliens",
+        "Prometheus",
+        "Kraken",
+        "Swapped",
+        "Alien"
+      ],
+      "vector_hit": false,
+      "vector_titles": [
+        "Flow",
+        "Kraken",
+        "Swapped",
+        "Deep Water",
+        "Interstellar"
+      ]
+    },
+    {
+      "id": 14,
+      "query_type": "recommend",
+      "query": "mind-bending science fiction movie",
+      "expected_titles": [
+        "Elio"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Predator: Killer of Killers",
+        "Elio",
+        "Meg 2: The Trench",
+        "Sonic the Hedgehog",
+        "Companion"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "Elio",
+        "Meg 2: The Trench",
+        "Sonic the Hedgehog",
+        "War of the Worlds",
+        "Despicable Me"
+      ]
+    },
+    {
+      "id": 15,
+      "query_type": "filter",
+      "query": "filter: genres=['Crime'], media_type=movie, year_min=2010, year_max=2019, min_rating=7.0",
+      "expected_titles": [
+        "Joker"
+      ],
+      "hybrid_hit": true,
+      "hybrid_titles": [
+        "Joker",
+        "Prisoners",
+        "Kill Bill: The Whole Bloody Affair",
+        "The Wolf of Wall Street",
+        "Knives Out"
+      ],
+      "vector_hit": true,
+      "vector_titles": [
+        "Joker",
+        "Prisoners",
+        "Kill Bill: The Whole Bloody Affair",
+        "The Wolf of Wall Street",
+        "Knives Out"
+      ]
+    },
+    {
+      "id": 16,
+      "query_type": "vague",
+      "query": "something good",
+      "expected_titles": [],
+      "hybrid_hit": true,
+      "hybrid_titles": [],
+      "vector_hit": true,
+      "vector_titles": []
+    },
+    {
+      "id": 17,
+      "query_type": "vague",
+      "query": "stuff",
+      "expected_titles": [],
+      "hybrid_hit": true,
+      "hybrid_titles": [],
+      "vector_hit": true,
+      "vector_titles": []
+    },
+    {
+      "id": 18,
+      "query_type": "vague",
+      "query": "idk something to watch",
+      "expected_titles": [],
+      "hybrid_hit": true,
+      "hybrid_titles": [],
+      "vector_hit": true,
+      "vector_titles": []
+    },
+    {
+      "id": 19,
+      "query_type": "vague",
+      "query": "whatever is popular",
+      "expected_titles": [],
+      "hybrid_hit": true,
+      "hybrid_titles": [],
+      "vector_hit": true,
+      "vector_titles": []
+    },
+    {
+      "id": 20,
+      "query_type": "vague",
+      "query": "asdkjaslkdj random nonsense xyz",
+      "expected_titles": [],
+      "hybrid_hit": true,
+      "hybrid_titles": [],
+      "vector_hit": true,
+      "vector_titles": []
+    }
+  ],
+  "summary": {
+    "lookup": {
+      "n": 5,
+      "hybrid_precision": 1.0,
+      "vector_precision": 1.0
+    },
+    "comparison": {
+      "n": 2,
+      "hybrid_precision": 1.0,
+      "vector_precision": 1.0
+    },
+    "filter": {
+      "n": 1,
+      "hybrid_precision": 1.0,
+      "vector_precision": 1.0
+    },
+    "recommend": {
+      "n": 7,
+      "hybrid_precision": 1.0,
+      "vector_precision": 0.5714285714285714
+    },
+    "overall_retrieval": {
+      "n": 15,
+      "hybrid_precision": 1.0,
+      "vector_precision": 0.8
+    },
+    "guardrail_vague": {
+      "n": 5,
+      "hybrid_precision": 1.0,
+      "vector_precision": 1.0
+    }
+  }
+}

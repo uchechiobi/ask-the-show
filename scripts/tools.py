@@ -201,12 +201,19 @@ def compare_titles(title_a, title_b):
 
 # --- Tool 4: recommend -------------------------------------------------
 
-def recommend(query, genres=None, max_runtime=None, min_rating=None, top_n=10):
+def recommend(query, genres=None, max_runtime=None, min_rating=None, top_n=10, use_bm25=True):
     """
     Day 2's hybrid retrieval (semantic + BM25) and weighted ranking
     formula, wrapped as a reusable function. Returns ranked suggestions
     for a free-text query, optionally narrowed by preferred genres, a
     max runtime, and/or a minimum rating.
+
+    use_bm25=False runs a "vector-only" ablation for the Day 5
+    evaluation: BM25 is skipped entirely (candidates come only from
+    semantic search, and text_relevance is pure semantic similarity),
+    with everything else - the ranking formula, weights, constraints -
+    identical to the hybrid run. That isolates retrieval method as the
+    only variable being compared.
     """
     records = _records()
     records_by_uid = _records_by_uid()
@@ -223,8 +230,11 @@ def recommend(query, genres=None, max_runtime=None, min_rating=None, top_n=10):
             sem_scores[uid] = similarity
             sem_chunk_text[uid] = document  # the actual retrieved chunk, for evidence display
 
-    bm25_hits = bm25_search.search(_bm25_index(), records, query, top_n=50)
-    bm25_scores = {r["uid"]: score for r, score in bm25_hits}
+    if use_bm25:
+        bm25_hits = bm25_search.search(_bm25_index(), records, query, top_n=50)
+        bm25_scores = {r["uid"]: score for r, score in bm25_hits}
+    else:
+        bm25_scores = {}
 
     # Raw (un-normalized) top scores, kept for the Day 4 confidence check -
     # ranking.py's normalized bm25_score is scaled *within this candidate
@@ -252,7 +262,8 @@ def recommend(query, genres=None, max_runtime=None, min_rating=None, top_n=10):
     if not candidates:
         return {"results": [], "top_semantic_raw": top_semantic_raw, "top_bm25_raw": top_bm25_raw}
 
-    scored = ranking.score_candidates(candidates, genres or [])
+    hybrid_alpha = 1.0 if not use_bm25 else ranking.HYBRID_ALPHA
+    scored = ranking.score_candidates(candidates, genres or [], hybrid_alpha=hybrid_alpha)
     results_out = []
     for s in scored[:top_n]:
         uid = s["record"]["uid"]

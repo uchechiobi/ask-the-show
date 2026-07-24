@@ -1,0 +1,27 @@
+[
+  {"id": 1, "query_type": "lookup", "query": "what is The Wire about", "expected_titles": ["The Wire"], "notes": "exact title lookup"},
+  {"id": 2, "query_type": "lookup", "query": "tell me about Alien", "expected_titles": ["Alien"], "notes": "exact title lookup"},
+  {"id": 3, "query_type": "lookup", "query": "what is Twin Peaks about", "expected_titles": ["Twin Peaks"], "notes": "exact title lookup"},
+  {"id": 4, "query_type": "lookup", "query": "tell me about Knives Out", "expected_titles": ["Knives Out"], "notes": "exact title lookup"},
+  {"id": 5, "query_type": "lookup", "query": "what is The Sopranos about", "expected_titles": ["The Sopranos"], "notes": "exact title lookup"},
+
+  {"id": 6, "query_type": "comparison", "title_a": "The Sopranos", "title_b": "The Wire", "expected_titles": ["The Sopranos", "The Wire"], "notes": "both titles should resolve without error; not retrieval-method dependent"},
+  {"id": 7, "query_type": "comparison", "title_a": "Alien", "title_b": "Aliens", "expected_titles": ["Alien", "Aliens"], "notes": "near-identical titles, tests exact-match resolution; not retrieval-method dependent"},
+
+  {"id": 8, "query_type": "recommend", "query": "a detective investigating a murder in a small town", "expected_titles": ["True Detective"], "notes": "descriptive semantic query"},
+  {"id": 9, "query_type": "recommend", "query": "space exploration and first contact with aliens", "expected_titles": ["Interstellar"], "notes": "descriptive semantic query"},
+  {"id": 10, "query_type": "recommend", "query": "a heist gone wrong with a crew of criminals", "expected_titles": ["The Usual Suspects"], "notes": "descriptive semantic query"},
+  {"id": 11, "query_type": "recommend", "query": "a family drama about grief and loss", "expected_titles": ["Everwood"], "notes": "descriptive semantic query"},
+  {"id": 12, "query_type": "recommend", "query": "teenage superhero learning to control their powers", "expected_titles": ["Spider-Man: Into the Spider-Verse"], "notes": "descriptive semantic query"},
+  {"id": 13, "query_type": "recommend", "query": "a story about an alien creature hunting a spaceship crew", "expected_titles": ["Alien"], "notes": "descriptive semantic query, plot-level detail"},
+
+  {"id": 14, "query_type": "recommend", "query": "mind-bending science fiction movie", "genres": ["Science Fiction"], "max_runtime": 120, "expected_titles": ["Elio"], "notes": "constrained recommendation: genre + max runtime"},
+
+  {"id": 15, "query_type": "filter", "genres": ["Crime"], "media_type": "movie", "year_min": 2010, "year_max": 2019, "min_rating": 7.0, "expected_titles": ["Joker"], "notes": "pure structural filter, not retrieval-method dependent"},
+
+  {"id": 16, "query_type": "vague", "query": "something good", "expected_titles": [], "expected_behavior": "low_confidence", "notes": "intentionally unanswerable"},
+  {"id": 17, "query_type": "vague", "query": "stuff", "expected_titles": [], "expected_behavior": "low_confidence", "notes": "intentionally unanswerable"},
+  {"id": 18, "query_type": "vague", "query": "idk something to watch", "expected_titles": [], "expected_behavior": "low_confidence", "notes": "intentionally unanswerable"},
+  {"id": 19, "query_type": "vague", "query": "whatever is popular", "expected_titles": [], "expected_behavior": "low_confidence", "notes": "intentionally unanswerable"},
+  {"id": 20, "query_type": "vague", "query": "asdkjaslkdj random nonsense xyz", "expected_titles": [], "expected_behavior": "low_confidence", "notes": "intentionally unanswerable, nonsense tokens"}
+]

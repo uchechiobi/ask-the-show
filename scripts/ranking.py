@@ -67,11 +67,16 @@ def novelty_score(year, min_year, max_year):
     return (year - min_year) / (max_year - min_year)
 
 
-def score_candidates(candidates, requested_genres):
+def score_candidates(candidates, requested_genres, hybrid_alpha=HYBRID_ALPHA):
     """
     candidates: list of dicts with keys:
         record (the title's data dict), semantic_similarity (0-1 or None),
         bm25_raw (float or None)
+
+    hybrid_alpha overrides the module-level blend ratio for this call -
+    used by the Day 5 evaluation script to run a "vector-only" ablation
+    (hybrid_alpha=1.0 means text_relevance is pure semantic similarity,
+    with BM25 contributing nothing, regardless of its normalized value).
 
     Returns a new list of dicts (one per candidate) with every score
     component included, sorted by final_score descending.
@@ -88,7 +93,7 @@ def score_candidates(candidates, requested_genres):
         record = candidate["record"]
         semantic_sim = candidate["semantic_similarity"] or 0.0
 
-        text_relevance = HYBRID_ALPHA * semantic_sim + (1 - HYBRID_ALPHA) * bm25_norm
+        text_relevance = hybrid_alpha * semantic_sim + (1 - hybrid_alpha) * bm25_norm
         genre = genre_match_score(record.get("genres", []), requested_genres)
         rating = rating_score(record.get("rating"))
         novelty = novelty_score(record.get("year"), min_year, max_year)
