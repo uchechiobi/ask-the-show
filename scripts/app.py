@@ -12,6 +12,7 @@ Run locally:   streamlit run scripts/app.py   (from the project root)
 Deploy:        see the deployment walkthrough in the chat / README.
 """
 
+import html
 import os
 import sys
 
@@ -26,10 +27,69 @@ import agent
 import tools
 
 st.set_page_config(page_title="Ask the Show", layout="centered")
+
+# Google Fonts + evidence-card styling. Streamlit's native theme (see
+# .streamlit/config.toml) handles base colors for built-in widgets; this
+# covers what the theme system can't reach - custom fonts and the
+# film-credit-style evidence cards (Streamlit's built-in bordered
+# container only supports a uniform 4-side border, no way to get a
+# left-only accent border from it).
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+h1, h1 span {
+    font-family: 'Bebas Neue', sans-serif !important;
+    letter-spacing: 0.03em !important;
+    font-size: 3.4rem !important;
+}
+
+h2, h2 span, h3, h3 span {
+    font-family: 'Oswald', sans-serif !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+}
+
+.evidence-card {
+    border-left: 3px solid #4A7C7C;
+    background: rgba(74, 124, 124, 0.07);
+    padding: 0.65rem 0.9rem;
+    margin-bottom: 0.6rem;
+    border-radius: 2px;
+}
+.evidence-card .evidence-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #EDEAE2;
+    margin-bottom: 0.2rem;
+}
+.evidence-card .evidence-meta {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    color: #4A7C7C;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.35rem;
+}
+.evidence-card .evidence-excerpt {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    color: #B8B5AC;
+    font-style: italic;
+    line-height: 1.45;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("Ask the Show")
 st.caption(
-    "An explainable AI media-discovery agent. Every answer shows the exact "
-    "evidence that backed it - title, retrieval method, score, and excerpt."
+    'Every recommendation, backed by evidence. Ask for a comparison, a hidden gem, '
+    'or "what should I watch next" — and see exactly which reviews, summaries, '
+    'and ratings shaped the answer.'
 )
 
 
@@ -78,14 +138,21 @@ def render_assistant(display):
         st.markdown(display["headline"])
 
         if display["evidence"]:
-            st.markdown(f"**Sources ({len(display['evidence'])})**")
+            st.markdown(f"### Sources ({len(display['evidence'])})")
             for e in display["evidence"]:
-                with st.container(border=True):
-                    score_str = f"{e['score']:.3f}" if isinstance(e["score"], (int, float)) else "n/a"
-                    st.markdown(f"**{e['title']}**")
-                    st.caption(f"source: {e['source']}  ·  score: {score_str}")
-                    if e["excerpt"]:
-                        st.caption(e["excerpt"])
+                score_str = f"{e['score']:.3f}" if isinstance(e["score"], (int, float)) else "n/a"
+                title = html.escape(e["title"])
+                source = html.escape(e["source"])
+                excerpt = html.escape(e["excerpt"]) if e["excerpt"] else ""
+                excerpt_html = f'<div class="evidence-excerpt">{excerpt}</div>' if excerpt else ""
+                st.markdown(
+                    f"""<div class="evidence-card">
+                        <div class="evidence-title">{title}</div>
+                        <div class="evidence-meta">source: {source} &middot; score: {score_str}</div>
+                        {excerpt_html}
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
 
         if display["flagged_titles"]:
             st.caption(f"Flagged and removed (not in dataset): {', '.join(display['flagged_titles'])}")
