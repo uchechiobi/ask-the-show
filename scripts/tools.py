@@ -54,6 +54,13 @@ def known_genres():
     return sorted({g for r in _records() for g in r.get("genres", [])})
 
 
+def known_titles():
+    """All distinct title strings present in the dataset. Used by the
+    Day 4 guardrail to check that any title mentioned in a response
+    actually exists in our data."""
+    return {r["title"] for r in _records()}
+
+
 def _brief(record):
     """A compact, consistent summary of a title - what tools return
     instead of the full raw record."""
@@ -89,15 +96,17 @@ def search_titles(query, top_n=5):
     title_matches.sort(key=lambda r: len(r["title"]), reverse=bool(title_in_query))
 
     if title_matches:
+        # An exact/substring title match is a direct dataset lookup, not a
+        # similarity guess - there's no relevance score to report.
         return {
             "method": "title_match",
-            "results": [_brief(r) for r in title_matches[:top_n]],
+            "results": [{**_brief(r), "match_score": None} for r in title_matches[:top_n]],
         }
 
     hits = bm25_search.search(_bm25_index(), records, query, top_n=top_n)
     return {
         "method": "keyword_search",
-        "results": [_brief(r) for r, _score in hits],
+        "results": [{**_brief(r), "match_score": round(score, 3)} for r, score in hits],
     }
 
 
@@ -135,9 +144,11 @@ def filter_by_constraints(genres=None, media_type=None, year_min=None, year_max=
         matches.append(r)
 
     matches.sort(key=lambda r: r.get("rating") or 0, reverse=True)
+    # No similarity score applies here - a title either satisfies the
+    # constraints or it doesn't, there's nothing to rank by relevance.
     return {
         "count": len(matches),
-        "results": [_brief(r) for r in matches[:top_n]],
+        "results": [{**_brief(r), "match_score": None} for r in matches[:top_n]],
     }
 
 
@@ -158,8 +169,10 @@ def compare_titles(title_a, title_b):
     if not result_b["results"]:
         return {"error": f"Couldn't find a title matching '{title_b}'"}
 
-    record_a = _records_by_uid()[result_a["results"][0]["uid"]]
-    record_b = _records_by_uid()[result_b["results"][0]["uid"]]
+    match_a = result_a["results"][0]
+    match_b = result_b["results"][0]
+    record_a = _records_by_uid()[match_a["uid"]]
+    record_b = _records_by_uid()[match_b["uid"]]
 
     genres_a = set(record_a.get("genres", []))
     genres_b = set(record_b.get("genres", []))
@@ -173,8 +186,10 @@ def compare_titles(title_a, title_b):
         year_diff = record_a["year"] - record_b["year"]
 
     return {
-        "title_a": {**_brief(record_a), "plot": record_a.get("plot", "")},
-        "title_b": {**_brief(record_b), "plot": record_b.get("plot", "")},
+        "title_a": {**_brief(record_a), "plot": record_a.get("plot", ""),
+                    "match_method": result_a["method"], "match_score": match_a["match_score"]},
+        "title_b": {**_brief(record_b), "plot": record_b.get("plot", ""),
+                    "match_method": result_b["method"], "match_score": match_b["match_score"]},
         "shared_genres": sorted(genres_a & genres_b),
         "only_in_a": sorted(genres_a - genres_b),
         "only_in_b": sorted(genres_b - genres_a),
@@ -198,14 +213,25 @@ def recommend(query, genres=None, max_runtime=None, min_rating=None, top_n=10):
 
     results = _collection().query(query_texts=[query], n_results=50)
     sem_scores = {}
-    for meta, distance in zip(results["metadatas"][0], results["distances"][0]):
+    sem_chunk_text = {}
+    for meta, distance, document in zip(
+        results["metadatas"][0], results["distances"][0], results["documents"][0]
+    ):
         similarity = max(0.0, 1.0 - distance)
         uid = meta["uid"]
         if uid not in sem_scores or similarity > sem_scores[uid]:
             sem_scores[uid] = similarity
+            sem_chunk_text[uid] = document  # the actual retrieved chunk, for evidence display
 
     bm25_hits = bm25_search.search(_bm25_index(), records, query, top_n=50)
     bm25_scores = {r["uid"]: score for r, score in bm25_hits}
+
+    # Raw (un-normalized) top scores, kept for the Day 4 confidence check -
+    # ranking.py's normalized bm25_score is scaled *within this candidate
+    # pool*, so it always stretches to fill 0-1 even when every match is
+    # weak. The raw scores below don't have that problem.
+    top_semantic_raw = max(sem_scores.values()) if sem_scores else 0.0
+    top_bm25_raw = max(bm25_scores.values()) if bm25_scores else 0.0
 
     candidate_uids = set(sem_scores) | set(bm25_scores)
     candidates = []
@@ -224,19 +250,30 @@ def recommend(query, genres=None, max_runtime=None, min_rating=None, top_n=10):
         })
 
     if not candidates:
-        return {"results": []}
+        return {"results": [], "top_semantic_raw": top_semantic_raw, "top_bm25_raw": top_bm25_raw}
 
     scored = ranking.score_candidates(candidates, genres or [])
     results_out = []
     for s in scored[:top_n]:
+        uid = s["record"]["uid"]
+        # Evidence excerpt: prefer the actual chunk of text that matched
+        # semantically; fall back to the overview if this title only
+        # matched via keyword search (no semantic chunk was retrieved).
+        excerpt = sem_chunk_text.get(uid) or s["record"].get("overview", "")
         results_out.append({
             **_brief(s["record"]),
             "final_score": round(s["final_score"], 3),
             "semantic_similarity": round(s["semantic_similarity"], 3),
             "bm25_score": round(s["bm25_score"], 3),
+            "bm25_raw": round(bm25_scores.get(uid) or 0.0, 3),
             "text_relevance": round(s["text_relevance"], 3),
             "genre_match": round(s["genre_match"], 3),
             "rating_score": round(s["rating_score"], 3),
             "novelty_score": round(s["novelty_score"], 3),
+            "evidence_excerpt": excerpt[:300],
         })
-    return {"results": results_out}
+    return {
+        "results": results_out,
+        "top_semantic_raw": top_semantic_raw,
+        "top_bm25_raw": top_bm25_raw,
+    }

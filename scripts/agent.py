@@ -21,6 +21,7 @@ This is a shared module - other scripts import it, it isn't run directly.
 
 import re
 
+import guardrails
 import tools
 
 COMPARE_RE = re.compile(r"\bcompare\b|\bvs\.?\b|\bversus\b|\bdifference between\b", re.I)
@@ -169,16 +170,97 @@ def format_lookup(result):
     return "\n".join(lines)
 
 
+# --- Day 4: evidence + guardrails ---------------------------------------
+#
+# Every branch below builds its response text the same way it always did,
+# then hands it to finalize(), which does two things before returning:
+#
+#   1. Attaches an evidence list (source title, excerpt, score) built from
+#      the same tool output that produced the response text, and checks
+#      every one of those titles against the real dataset.
+#   2. For retrieval-driven branches (recommend, mixed, keyword lookup),
+#      checks whether the retrieval scores were actually strong enough to
+#      trust. If not, the response is replaced with an honest
+#      "not confident" message instead of presenting weak matches as if
+#      they were good ones.
+
+def evidence_for_comparison(result):
+    if "error" in result:
+        return []
+    a, b = result["title_a"], result["title_b"]
+    return [
+        guardrails.build_evidence(a["title"], a["match_method"], a["plot"] or a["overview"], a["match_score"]),
+        guardrails.build_evidence(b["title"], b["match_method"], b["plot"] or b["overview"], b["match_score"]),
+    ]
+
+
+def evidence_for_recommend(result):
+    return [
+        guardrails.build_evidence(r["title"], "hybrid_semantic_bm25", r["evidence_excerpt"], r["text_relevance"])
+        for r in result["results"][:5]
+    ]
+
+
+def evidence_for_filter(result):
+    return [
+        guardrails.build_evidence(r["title"], "structural_filter", r["overview"], None)
+        for r in result["results"][:5]
+    ]
+
+
+def evidence_for_lookup(result):
+    return [
+        guardrails.build_evidence(r["title"], result["method"], r["overview"], r["match_score"])
+        for r in result["results"][:5]
+    ]
+
+
+def finalize(intent, reason, tool_calls, result, response_text, evidence, low_confidence=False):
+    clean_evidence, flagged_titles = guardrails.validate_titles(evidence)
+
+    if low_confidence:
+        return {
+            "intent": intent,
+            "reason": reason,
+            "tool_calls": tool_calls,
+            "result": result,
+            "response": guardrails.LOW_CONFIDENCE_MESSAGE,
+            "evidence": [],
+            "flagged_titles": flagged_titles,
+            "low_confidence": True,
+        }
+
+    response_text = response_text + "\n\n" + guardrails.render_evidence(clean_evidence)
+    if flagged_titles:
+        response_text += (f"\n\n[Note: {len(flagged_titles)} title(s) were mentioned but not found "
+                           f"in the dataset and have been removed: {', '.join(flagged_titles)}]")
+
+    return {
+        "intent": intent,
+        "reason": reason,
+        "tool_calls": tool_calls,
+        "result": result,
+        "response": response_text,
+        "evidence": clean_evidence,
+        "flagged_titles": flagged_titles,
+        "low_confidence": False,
+    }
+
+
 # --- The router --------------------------------------------------------
 
 def handle_query(query):
     """
     Route a natural-language query to the right tool(s) and return a dict:
-        intent       - which branch matched
-        reason       - why it matched, in plain English
-        tool_calls   - [(tool_name, arguments), ...] actually made
-        result       - the raw structured data from the tool(s)
-        response     - a plain-text summary built from that data
+        intent          - which branch matched
+        reason          - why it matched, in plain English
+        tool_calls      - [(tool_name, arguments), ...] actually made
+        result          - the raw structured data from the tool(s)
+        response        - plain-text summary + evidence block (or the
+                          low-confidence message if retrieval was too weak)
+        evidence        - [{title, source, excerpt, score}, ...]
+        flagged_titles  - titles that were mentioned but not in the dataset
+        low_confidence  - True if the guardrail replaced the response
     """
 
     # 1. Comparison
@@ -186,14 +268,15 @@ def handle_query(query):
         title_a, title_b = extract_compare_titles(query)
         if title_a and title_b:
             result = tools.compare_titles(title_a, title_b)
-            return {
-                "intent": "compare_titles",
-                "reason": "found a comparison keyword ('compare'/'vs'/'versus') and split "
-                          f"the rest into two titles: '{title_a}' and '{title_b}'",
-                "tool_calls": [("compare_titles", {"title_a": title_a, "title_b": title_b})],
-                "result": result,
-                "response": format_comparison(result),
-            }
+            return finalize(
+                intent="compare_titles",
+                reason="found a comparison keyword ('compare'/'vs'/'versus') and split "
+                       f"the rest into two titles: '{title_a}' and '{title_b}'",
+                tool_calls=[("compare_titles", {"title_a": title_a, "title_b": title_b})],
+                result=result,
+                response_text=format_comparison(result),
+                evidence=evidence_for_comparison(result),
+            )
 
     # 2. Mixed: "something like X (but shorter/longer)" -> look up X, then recommend
     like_match = LIKE_RE.search(query)
@@ -209,19 +292,24 @@ def handle_query(query):
             rec_result = tools.recommend(semantic_query, genres=ref["genres"], max_runtime=max_runtime)
             # Don't recommend the reference title back to itself.
             rec_result["results"] = [r for r in rec_result["results"] if r["uid"] != ref["uid"]]
-            return {
-                "intent": "mixed_search_then_recommend",
-                "reason": f"query references a specific title ('like {reference_title}'), so "
-                          "search_titles found it first, then its genres/overview were fed "
-                          "into recommend() as the query and constraints",
-                "tool_calls": [
+            low_confidence = not guardrails.has_sufficient_confidence(
+                rec_result.get("top_semantic_raw"), rec_result.get("top_bm25_raw")
+            )
+            return finalize(
+                intent="mixed_search_then_recommend",
+                reason=f"query references a specific title ('like {reference_title}'), so "
+                       "search_titles found it first, then its genres/overview were fed "
+                       "into recommend() as the query and constraints",
+                tool_calls=[
                     ("search_titles", {"query": reference_title}),
                     ("recommend", {"query": semantic_query, "genres": ref["genres"],
                                     "max_runtime": max_runtime}),
                 ],
-                "result": {"reference": ref, "recommendations": rec_result},
-                "response": format_recommend(rec_result, prefix=f"Because you liked {ref['title']}:"),
-            }
+                result={"reference": ref, "recommendations": rec_result},
+                response_text=format_recommend(rec_result, prefix=f"Because you liked {ref['title']}:"),
+                evidence=evidence_for_recommend(rec_result),
+                low_confidence=low_confidence,
+            )
 
     # 3. Recommend: descriptive/thematic ask
     if RECOMMEND_RE.search(query):
@@ -229,18 +317,26 @@ def handle_query(query):
         max_runtime = extract_max_runtime(query)
         min_rating = extract_min_rating(query)
         result = tools.recommend(query, genres=genres, max_runtime=max_runtime, min_rating=min_rating)
-        return {
-            "intent": "recommend",
-            "reason": "found a recommend/suggest-style keyword; extracted structured "
-                      f"constraints (genres={genres or None}, max_runtime={max_runtime}, "
-                      f"min_rating={min_rating}) and used the full query as the semantic search text",
-            "tool_calls": [("recommend", {"query": query, "genres": genres,
-                                            "max_runtime": max_runtime, "min_rating": min_rating})],
-            "result": result,
-            "response": format_recommend(result),
-        }
+        low_confidence = not guardrails.has_sufficient_confidence(
+            result.get("top_semantic_raw"), result.get("top_bm25_raw")
+        )
+        return finalize(
+            intent="recommend",
+            reason="found a recommend/suggest-style keyword; extracted structured "
+                   f"constraints (genres={genres or None}, max_runtime={max_runtime}, "
+                   f"min_rating={min_rating}) and used the full query as the semantic search text",
+            tool_calls=[("recommend", {"query": query, "genres": genres,
+                                        "max_runtime": max_runtime, "min_rating": min_rating})],
+            result=result,
+            response_text=format_recommend(result),
+            evidence=evidence_for_recommend(result),
+            low_confidence=low_confidence,
+        )
 
-    # 4. Filter: mostly structural constraints, little descriptive content
+    # 4. Filter: mostly structural constraints, little descriptive content.
+    # No confidence check here - filtering is deterministic (a title either
+    # satisfies the constraints or it doesn't), there's no retrieval score
+    # whose strength needs checking.
     genres = extract_genres(query)
     max_runtime = extract_max_runtime(query)
     min_rating = extract_min_rating(query)
@@ -253,27 +349,34 @@ def handle_query(query):
             genres=genres, media_type=media_type, year_min=year_min, year_max=year_max,
             max_runtime=max_runtime, min_rating=min_rating,
         )
-        return {
-            "intent": "filter_by_constraints",
-            "reason": f"no comparison/recommend/reference-title signal found, but structural "
-                      f"constraints were present (genres={genres or None}, media_type={media_type}, "
-                      f"year=[{year_min}, {year_max}], max_runtime={max_runtime}, min_rating={min_rating})",
-            "tool_calls": [("filter_by_constraints", {
+        return finalize(
+            intent="filter_by_constraints",
+            reason=f"no comparison/recommend/reference-title signal found, but structural "
+                   f"constraints were present (genres={genres or None}, media_type={media_type}, "
+                   f"year=[{year_min}, {year_max}], max_runtime={max_runtime}, min_rating={min_rating})",
+            tool_calls=[("filter_by_constraints", {
                 "genres": genres, "media_type": media_type, "year_min": year_min,
                 "year_max": year_max, "max_runtime": max_runtime, "min_rating": min_rating,
             })],
-            "result": result,
-            "response": format_filter(result),
-        }
+            result=result,
+            response_text=format_filter(result),
+            evidence=evidence_for_filter(result),
+        )
 
     # 5. Fallback: title/keyword lookup
     lookup_text = strip_lookup_phrases(query) or query
     result = tools.search_titles(lookup_text, top_n=5)
-    return {
-        "intent": "search_titles",
-        "reason": "no comparison, recommendation, or constraint signal found - "
-                  "treating this as a plain title/keyword lookup",
-        "tool_calls": [("search_titles", {"query": lookup_text})],
-        "result": result,
-        "response": format_lookup(result),
-    }
+    low_confidence = False
+    if result["method"] == "keyword_search":
+        top_score = result["results"][0]["match_score"] if result["results"] else 0.0
+        low_confidence = (top_score or 0.0) < guardrails.CONFIDENCE_BM25_THRESHOLD
+    return finalize(
+        intent="search_titles",
+        reason="no comparison, recommendation, or constraint signal found - "
+               "treating this as a plain title/keyword lookup",
+        tool_calls=[("search_titles", {"query": lookup_text})],
+        result=result,
+        response_text=format_lookup(result),
+        evidence=evidence_for_lookup(result),
+        low_confidence=low_confidence,
+    )
