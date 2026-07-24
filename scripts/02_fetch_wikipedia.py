@@ -14,6 +14,12 @@ import time
 
 import wikipedia
 
+# Wikipedia's API rejects requests without a descriptive User-Agent (returns a
+# 403 robot-policy error instead of JSON). Identify ourselves so requests go through.
+wikipedia.set_user_agent(
+    "AskTheShow/1.0 (educational project; https://github.com/uchechiobi/ask-the-show)"
+)
+
 INPUT_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "tmdb_shows.json")
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "shows_with_plots.json")
 
@@ -43,8 +49,47 @@ def extract_plot_section(page_content):
     return "\n".join(plot_lines).strip()
 
 
+def _load_page(title_candidate):
+    """Fetch a Wikipedia page by exact title. Retries once on a transient
+    network/API hiccup before giving up on this candidate."""
+    for attempt in range(2):
+        try:
+            return wikipedia.page(title_candidate, auto_suggest=False)
+        except wikipedia.exceptions.DisambiguationError as e:
+            if not e.options:
+                return None
+            try:
+                return wikipedia.page(e.options[0], auto_suggest=False)
+            except Exception:
+                return None
+        except (wikipedia.exceptions.PageError, wikipedia.exceptions.WikipediaException):
+            return None
+        except Exception:
+            # Likely a transient network/JSON error from Wikipedia's API - retry once.
+            time.sleep(1)
+    return None
+
+
+def _page_text(page):
+    """Get the best available text for a page: its Plot section if present,
+    otherwise its intro summary. Returns None if both requests fail."""
+    try:
+        plot = extract_plot_section(page.content)
+    except Exception:
+        plot = None
+
+    if plot:
+        return plot
+
+    try:
+        return page.summary
+    except Exception:
+        return None
+
+
 def find_plot(title, year, media_type):
-    """Try a disambiguated search first, then fall back to a plain search."""
+    """Try exact disambiguated titles first, then fall back to Wikipedia's
+    own search index for the closest matching page."""
     candidates = []
     if media_type == "movie" and year:
         candidates.append(f"{title} ({year} film)")
@@ -53,24 +98,25 @@ def find_plot(title, year, media_type):
     candidates.append(title)
 
     for candidate in candidates:
-        try:
-            page = wikipedia.page(candidate, auto_suggest=False)
-        except wikipedia.exceptions.DisambiguationError as e:
-            if not e.options:
-                continue
-            try:
-                page = wikipedia.page(e.options[0], auto_suggest=False)
-            except Exception:
-                continue
-        except Exception:
+        page = _load_page(candidate)
+        if page is None:
             continue
+        text = _page_text(page)
+        if text:
+            return page.title, text
 
-        plot = extract_plot_section(page.content)
-        if plot:
-            return page.title, plot
-        # No dedicated Plot section (common for less popular titles) - use the
-        # page summary instead, it's better than nothing.
-        return page.title, page.summary
+    # Last resort: ask Wikipedia's own search for the closest matching title.
+    try:
+        search_results = wikipedia.search(title, results=1)
+    except Exception:
+        search_results = []
+
+    if search_results:
+        page = _load_page(search_results[0])
+        if page is not None:
+            text = _page_text(page)
+            if text:
+                return page.title, text
 
     return None, None
 
@@ -80,7 +126,7 @@ def load_existing_output():
         return {}
     with open(OUTPUT_PATH, "r", encoding="utf-8") as f:
         records = json.load(f)
-    return {r["tmdb_id"]: r for r in records}
+    return {r["uid"]: r for r in records}
 
 
 def main():
@@ -94,10 +140,15 @@ def main():
     missing_count = 0
 
     for i, record in enumerate(source_records, start=1):
-        if record["tmdb_id"] in done:
+        if record["uid"] in done:
             continue
 
-        wiki_title, plot = find_plot(record["title"], record["year"], record["media_type"])
+        try:
+            wiki_title, plot = find_plot(record["title"], record["year"], record["media_type"])
+        except Exception as e:
+            print(f"  unexpected error on '{record['title']}': {e}")
+            wiki_title, plot = None, None
+
         record = dict(record)
         record["wiki_title"] = wiki_title
         record["plot"] = plot or ""
@@ -107,7 +158,7 @@ def main():
         else:
             missing_count += 1
 
-        done[record["tmdb_id"]] = record
+        done[record["uid"]] = record
 
         if i % SAVE_EVERY == 0:
             save(done)

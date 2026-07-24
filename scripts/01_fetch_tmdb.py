@@ -92,6 +92,10 @@ def build_records(raw_items, media_type, genre_map):
         genres = [genre_map.get(gid, "Unknown") for gid in item.get("genre_ids", [])]
 
         records.append({
+            # TMDB movie IDs and TV IDs are separate namespaces - the same
+            # number can mean two different titles. "uid" is what every
+            # other script uses to identify a title uniquely.
+            "uid": f"{media_type}_{item['id']}",
             "tmdb_id": item["id"],
             "media_type": media_type,
             "title": title,
@@ -140,11 +144,19 @@ def main():
 
     all_records = movie_records + tv_records
 
+    # TMDB's "popular" ranking can shift while we're still paging through it
+    # (this fetch takes several minutes), so the same title can land on two
+    # different pages. De-duplicate by uid before saving.
+    deduped = list({r["uid"]: r for r in all_records}.values())
+    if len(deduped) < len(all_records):
+        print(f"Removed {len(all_records) - len(deduped)} duplicate titles "
+              f"(popularity list shifted during paging).")
+
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        json.dump(all_records, f, indent=2, ensure_ascii=False)
+        json.dump(deduped, f, indent=2, ensure_ascii=False)
 
-    print(f"\nSaved {len(all_records)} titles to {OUTPUT_PATH}")
+    print(f"\nSaved {len(deduped)} titles to {OUTPUT_PATH}")
 
 
 if __name__ == "__main__":

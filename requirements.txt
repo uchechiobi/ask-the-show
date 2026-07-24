@@ -4,3 +4,4 @@ wikipedia
 tiktoken
 chromadb
 sentence-transformers
+rank-bm25

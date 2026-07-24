@@ -57,9 +57,10 @@ def build_chunk_records(records):
 
         chunks = chunk_text(text)
         for i, chunk in enumerate(chunks):
-            ids.append(f"{record['tmdb_id']}_{i}")
+            ids.append(f"{record['uid']}_{i}")
             documents.append(chunk)
             metadatas.append({
+                "uid": record["uid"],
                 "tmdb_id": record["tmdb_id"],
                 "title": record["title"],
                 "year": record["year"] or 0,
@@ -88,7 +89,11 @@ def main():
 
     client = chromadb.PersistentClient(path=CHROMA_PATH)
     collection = client.get_or_create_collection(
-        name=COLLECTION_NAME, embedding_function=embedding_fn
+        name=COLLECTION_NAME,
+        embedding_function=embedding_fn,
+        # Cosine distance ranges 0 (identical) to 2 (opposite), so
+        # similarity = 1 - distance is directly usable as a 0-1 score.
+        metadata={"hnsw:space": "cosine"},
     )
 
     print(f"Embedding and storing {len(ids)} chunks in batches of {ADD_BATCH_SIZE}...")
