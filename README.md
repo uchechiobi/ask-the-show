@@ -1,6 +1,8 @@
 # ask-the-show
 Ask the Show is an AI media-discovery agent that combines hybrid retrieval, semantic ranking, structured metadata, and grounded generation to answer questions and produce personalized television recommendations.
 
+**Live demo:** [ask-the-show.streamlit.app](https://ask-the-show.streamlit.app)
+
 ## Evaluation
 
 Hybrid retrieval (semantic + BM25) vs. vector-only, evaluated on 20 hand-verified questions ([scripts/10_evaluate.py](scripts/10_evaluate.py)):
